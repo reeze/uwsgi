@@ -822,6 +822,21 @@ end:
 
 void gracefully_kill(int signum) {
 
+	if (uwsgi.lazy && uwsgi.workers[uwsgi.mywid].manage_next_request == 1) {
+		int delay_gracefully_kill;
+		uwsgi.workers[uwsgi.mywid].manage_next_request = 2;
+		uwsgi_unix_signal(SIGALRM, gracefully_kill);
+		if (uwsgi.reload_mercy > 1) {
+			delay_gracefully_kill = 1 + (uwsgi.mywid % (uwsgi.reload_mercy / 2));
+		} else {
+			delay_gracefully_kill = 1 + (uwsgi.mywid % 30);
+		}
+		alarm(delay_gracefully_kill);
+		uwsgi_log("delay gracefully kill worker %d (pid: %d) in %d seconds...\n", 
+				uwsgi.mywid, uwsgi.mypid, delay_gracefully_kill);
+		return;
+	}
+
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 #ifdef UWSGI_THREADING
