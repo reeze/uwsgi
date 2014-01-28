@@ -1619,18 +1619,24 @@ uint16_t uwsgi_python_rpc(void *func, uint8_t argc, char **argv, uint16_t argvs[
 void uwsgi_python_add_item(char *key, uint16_t keylen, char *val, uint16_t vallen, void *data) {
 
 	PyObject *pydict = (PyObject *) data;
-
-	PyDict_SetItem(pydict, PyString_FromStringAndSize(key, keylen), PyString_FromStringAndSize(val, vallen));
+	PyObject *k = PyString_FromStringAndSize(key, keylen);
+	PyObject *v = PyString_FromStringAndSize(val, vallen);
+	PyDict_SetItem(pydict, k, v);
+	Py_XDECREF(k);
+	Py_XDECREF(v);
 }
 
 int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, size_t body_len) {
 
 	static int random_seed_reset = 0;
+	int retval = 0;
 
 	UWSGI_GET_GIL;
 
 	PyObject *spool_dict = PyDict_New();
-	PyObject *spool_func, *pyargs, *ret;
+	PyObject *spool_func;
+	PyObject *pyargs = NULL, *ret = NULL;
+	PyObject *spool_filename = NULL;
 
 	if (!random_seed_reset) {
 		uwsgi_python_reset_random_seed();
@@ -1638,54 +1644,56 @@ int uwsgi_python_spooler(char *filename, char *buf, uint16_t len, char *body, si
 	}
 
 	if (!up.embedded_dict) {
-		// ignore
-		UWSGI_RELEASE_GIL;
-		return 0;
+		retval = 0; // ignore
+		goto clear;
 	}
 
 	spool_func = PyDict_GetItemString(up.embedded_dict, "spooler");
 	if (!spool_func) {
-		// ignore
-		UWSGI_RELEASE_GIL;
-		return 0;
+		retval = 0; // ignore
+		goto clear;
 	}
 
 	if (uwsgi_hooked_parse(buf, len, uwsgi_python_add_item, spool_dict)) {
 		// malformed packet, destroy it
-		UWSGI_RELEASE_GIL;
-		return -2;
+		retval = -2;
+		goto clear;
 	}
 
 	pyargs = PyTuple_New(1);
 
-	PyDict_SetItemString(spool_dict, "spooler_task_name", PyString_FromString(filename));
+	spool_filename = PyString_FromString(filename);
+	PyDict_SetItemString(spool_dict, "spooler_task_name", spool_filename);
 
 	if (body && body_len > 0) {
-		PyDict_SetItemString(spool_dict, "body", PyString_FromStringAndSize(body, body_len));
+		PyObject *spool_body = PyString_FromStringAndSize(body, body_len);
+		PyDict_SetItemString(spool_dict, "body", spool_body);
+		Py_XDECREF(spool_body);
 	}
 	PyTuple_SetItem(pyargs, 0, spool_dict);
 
 	ret = python_call(spool_func, pyargs, 0, NULL);
-
 	if (ret) {
-		if (!PyInt_Check(ret)) {
-			// error, retry
-			UWSGI_RELEASE_GIL;
-			return -1;
-		}	
-
-		int retval = (int) PyInt_AsLong(ret);
-		UWSGI_RELEASE_GIL;
-		return retval;
-		
+		if (PyInt_Check(ret)) {
+			retval = (int) PyInt_AsLong(ret);
+		} else {
+			retval = -1; // error, retry
+		}
+		goto clear;
 	}
-	
+
 	if (PyErr_Occurred())
 		PyErr_Print();
 
 	// error, retry
+	retval = -1;
+clear:
+	Py_XDECREF(pyargs);
+	Py_XDECREF(spool_dict);
+	Py_XDECREF(spool_filename);
+	Py_XDECREF(ret);
 	UWSGI_RELEASE_GIL;
-	return -1;
+	return retval;
 }
 
 #ifndef UWSGI_PYPY
