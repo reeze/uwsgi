@@ -853,7 +853,7 @@ void gracefully_kill(int signum) {
 
 	// still not found a way to gracefully reload in async mode
 	if (uwsgi.async > 1) {
-		exit(UWSGI_RELOAD_CODE);
+        return;
 	}
 
 	if (!uwsgi.workers[uwsgi.mywid].cores[0].in_request) {
