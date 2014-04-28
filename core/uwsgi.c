@@ -836,6 +836,7 @@ void gracefully_kill(int signum) {
 				uwsgi.mywid, uwsgi.mypid, delay_gracefully_kill);
 		return;
 	}
+	signal(SIGALRM, (void *) &harakiri);
 
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
