@@ -1872,6 +1872,17 @@ PyObject *py_uwsgi_spooler_pid(PyObject * self, PyObject * args) {
 	if (!uwsgi.spoolers) return PyInt_FromLong(0);
 	return PyInt_FromLong(uspool->pid);
 }
+
+PyObject *py_uwsgi_spooler_pids(PyObject * self, PyObject * args) {
+    PyObject *ret = PyList_New(0);
+    struct uwsgi_spooler *uspool = uwsgi.spoolers;
+    while (uspool) {
+        PyList_Append(ret, PyInt_FromLong(uspool->pid));
+        uspool = uspool->next;
+    }
+    return ret;
+}
+
 #endif
 
 PyObject *py_uwsgi_send_multi_message(PyObject * self, PyObject * args) {
@@ -3063,6 +3074,7 @@ static PyMethodDef uwsgi_spooler_methods[] = {
 	{"set_spooler_frequency", py_uwsgi_spooler_freq, METH_VARARGS, ""},
 	{"spooler_jobs", py_uwsgi_spooler_jobs, METH_VARARGS, ""},
 	{"spooler_pid", py_uwsgi_spooler_pid, METH_VARARGS, ""},
+	{"spooler_pids", py_uwsgi_spooler_pids, METH_VARARGS, ""},
 	{NULL, NULL},
 };
 #endif
