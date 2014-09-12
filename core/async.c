@@ -115,9 +115,11 @@ void async_expire_timeouts() {
 			wsgi_req = (struct wsgi_request *) urbt->data;
 			// timeout expired
 			wsgi_req->async_timed_out = 1;
-			uwsgi_del_rb_timer(uwsgi.rb_async_timeouts, wsgi_req->async_timeout);
-			free(wsgi_req->async_timeout);
-			wsgi_req->async_timeout = NULL;
+			if (wsgi_req->async_timeout) {
+				uwsgi_del_rb_timer(uwsgi.rb_async_timeouts, wsgi_req->async_timeout);
+				free(wsgi_req->async_timeout);
+				wsgi_req->async_timeout = NULL;
+			}
 			uaf = wsgi_req->waiting_fds;
 			// remove fds from monitoring (no problem modifying the queue here, as the function is executed only when there are no fd ready)
 			while (uaf) {
@@ -354,9 +356,11 @@ void async_loop() {
 				if (uwsgi.wsgi_req) {
 					proto_parser_status = uwsgi.wsgi_req->socket->proto(uwsgi.wsgi_req);
 					// reset timeout
-					uwsgi_del_rb_timer(uwsgi.rb_async_timeouts, uwsgi.wsgi_req->async_timeout);
-					free(uwsgi.wsgi_req->async_timeout);
-					uwsgi.wsgi_req->async_timeout = NULL;
+					if (uwsgi.wsgi_req->async_timeout) {
+						uwsgi_del_rb_timer(uwsgi.rb_async_timeouts, uwsgi.wsgi_req->async_timeout);
+						free(uwsgi.wsgi_req->async_timeout);
+						uwsgi.wsgi_req->async_timeout = NULL;
+					}
 					// parsing complete
 					if (!proto_parser_status) {
 						// remove fd from event poll and fd proto table 
