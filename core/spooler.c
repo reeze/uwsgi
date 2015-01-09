@@ -174,27 +174,21 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 		uspool = uwsgi.spoolers;
 	}
 
-	// this lock is for threads, the pid value in filename will avoid multiprocess races
-	uwsgi_lock(uspool->lock);
-
 	gettimeofday(&tv, NULL);
 
 	if (priority) {
 		if (snprintf(filename, 1024, "%s/%s", uspool->dir, priority) <= 0) {
-			uwsgi_unlock(uspool->lock);
 			return 0;
 		}
 		// no need to check for errors...
 		(void) mkdir(filename, 0777);
 
 		if (snprintf(filename, 1024, "%s/%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uspool->dir, priority, uwsgi.hostname, (int) getpid(), rn, core_id, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
-			uwsgi_unlock(uspool->lock);
 			return 0;
 		}
 	}
 	else {
 		if (snprintf(filename, 1024, "%s/uwsgi_spoolfile_on_%s_%d_%d_%d_%llu_%llu", uspool->dir, uwsgi.hostname, (int) getpid(), rn, core_id, (unsigned long long) tv.tv_sec, (unsigned long long) tv.tv_usec) <= 0) {
-			uwsgi_unlock(uspool->lock);
 			return 0;
 		}
 	}
@@ -202,7 +196,6 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	fd = open(filename, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
 		uwsgi_error_open(filename);
-		uwsgi_unlock(uspool->lock);
 		return 0;
 	}
 
@@ -211,7 +204,6 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	// in such case the spooler will detect a zeroed file and will retry later
 	if (uwsgi_fcntl_lock(fd)) {
 		close(fd);
-		uwsgi_unlock(uspool->lock);
 		return 0;
 	}
 
@@ -257,9 +249,6 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 	if (!uwsgi.spooler_quiet)
 		uwsgi_log("[spooler] written %d bytes to file %s\n", size + body_len + 4, filename);
 
-	// and here waiting threads can continue
-	uwsgi_unlock(uspool->lock);
-
 /*	wake up the spoolers attached to the specified dir ... (HACKY) 
 	no need to fear races, as USR1 is harmless an all of the uWSGI processes...
 	it could be a problem if a new process takes the old pid, but modern systems should avoid that
@@ -279,7 +268,6 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 
 
 clear:
-	uwsgi_unlock(uspool->lock);
 	uwsgi_error("write()");
 	if (unlink(filename)) {
 		uwsgi_error("unlink()");

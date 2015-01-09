@@ -2498,13 +2498,11 @@ unsafe:
 	}
 
 #ifdef UWSGI_SPOOLER
-	// initialize locks and socket as soon as possibile, as the master could enqueue tasks
+	// initialize socket as soon as possibile, as the master could enqueue tasks
 	if (uwsgi.spoolers != NULL && (uwsgi.sockets || uwsgi.loop)) {
 		create_signal_pipe(uwsgi.shared->spooler_signal_pipe);
 		struct uwsgi_spooler *uspool = uwsgi.spoolers;
 		while (uspool) {
-			// lock is required even in EXTERNAL mode
-			uspool->lock = uwsgi_lock_init(uwsgi_concat2("spooler on ", uspool->dir));
 			if (uspool->mode == UWSGI_SPOOLER_EXTERNAL)
 				goto next;
 			create_signal_pipe(uspool->signal_pipe);
