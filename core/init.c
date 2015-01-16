@@ -59,7 +59,7 @@ void uwsgi_init_default() {
 	uwsgi.shared->options[UWSGI_OPTION_LOGGING] = 1;
 
 #ifdef UWSGI_SPOOLER
-	uwsgi.shared->spooler_frequency = 30;
+	uwsgi.shared->spooler_frequency = 3;
 
 	uwsgi.shared->spooler_signal_pipe[0] = -1;
 	uwsgi.shared->spooler_signal_pipe[1] = -1;

@@ -259,6 +259,7 @@ int spool_request(struct uwsgi_spooler *uspool, char *filename, int rn, int core
 		if (!strcmp(spoolers->dir, uspool->dir)) {
 			if (spoolers->pid > 0 && spoolers->running == 0) {
 				(void) kill(spoolers->pid, SIGUSR1);
+				break;
 			}
 		}
 		spoolers = spoolers->next;
