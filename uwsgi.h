@@ -2194,6 +2194,7 @@ struct uwsgi_worker {
 
 	char name[0xff];
 	char snapshot_name[0xff];
+	time_t grace_reload_deadline;
 };
 
 

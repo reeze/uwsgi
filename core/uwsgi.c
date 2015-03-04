@@ -822,22 +822,6 @@ end:
 
 void gracefully_kill(int signum) {
 
-	if (uwsgi.lazy && uwsgi.workers[uwsgi.mywid].manage_next_request == 1) {
-		int delay_gracefully_kill;
-		uwsgi.workers[uwsgi.mywid].manage_next_request = 2;
-		uwsgi_unix_signal(SIGALRM, gracefully_kill);
-		if (uwsgi.reload_mercy > 1) {
-			delay_gracefully_kill = 1 + (uwsgi.mywid % (uwsgi.reload_mercy / 2));
-		} else {
-			delay_gracefully_kill = 1 + (uwsgi.mywid % 30);
-		}
-		alarm(delay_gracefully_kill);
-		uwsgi_log("delay gracefully kill worker %d (pid: %d) in %d seconds...\n", 
-				uwsgi.mywid, uwsgi.mypid, delay_gracefully_kill);
-		return;
-	}
-	signal(SIGALRM, (void *) &harakiri);
-
 	uwsgi_log("Gracefully killing worker %d (pid: %d)...\n", uwsgi.mywid, uwsgi.mypid);
 	uwsgi.workers[uwsgi.mywid].manage_next_request = 0;
 #ifdef UWSGI_THREADING
@@ -854,7 +838,7 @@ void gracefully_kill(int signum) {
 
 	// still not found a way to gracefully reload in async mode
 	if (uwsgi.async > 1) {
-        return;
+		exit(UWSGI_RELOAD_CODE);
 	}
 
 	if (!uwsgi.workers[uwsgi.mywid].cores[0].in_request) {
@@ -1054,9 +1038,13 @@ void grace_them_all(int signum) {
 			}
 		}
 		else if (uwsgi.workers[i].pid > 0) {
-			if (uwsgi.lazy)
+			if (uwsgi.lazy) { /*reload worker in uwsgi.reload_mercy/2 seconds*/
+				time_t timeout = (i % (uwsgi.reload_mercy / 2));
+				uwsgi.workers[i].grace_reload_deadline = uwsgi_now() + timeout;
 				uwsgi.workers[i].destroy = 1;
-			kill(uwsgi.workers[i].pid, SIGHUP);
+				uwsgi_log("reload worker(%d) in %ld seconds\n", uwsgi.workers[i].pid, timeout);
+			 } else
+			    kill(uwsgi.workers[i].pid, SIGHUP);
 		}
 	}
 
