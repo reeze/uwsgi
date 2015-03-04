@@ -531,6 +531,7 @@ int uwsgi_respawn_worker(int wid) {
 		// pid is updated by the master
 		//uwsgi.workers[uwsgi.mywid].pid = uwsgi.mypid;
 		// OVERENGINEERING (just to be safe)
+		uwsgi.workers[uwsgi.mywid].grace_reload_deadline = 0;
 		uwsgi.workers[uwsgi.mywid].id = uwsgi.mywid;
 		/*
 		   uwsgi.workers[uwsgi.mywid].harakiri = 0;
